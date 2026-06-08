@@ -8,6 +8,8 @@ scikit-learn==1.4.1.post1
 networkx==3.2.1
 pyvis==0.3.2
 underthesea==6.8.0
+sentence-transformers==2.5.1
+numpy==1.26.4
 
 # Dành cho Deep Learning (TV3 & TV4)
 torch==2.2.1
