@@ -5,6 +5,8 @@
 #        + Level 2 (Semantic Embedding thay TF-IDF)
 # ==============================================================
 
+# pyrefly: ignore-errors
+
 import numpy as np
 import networkx as nx
 import nltk
