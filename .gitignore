@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Môi trường ảo (Tuyệt đối không đẩy lên Git)
+venv/
+env/
+ENV/
+
+# Dữ liệu (Chỉ giữ lại thư mục rỗng nhờ file .gitkeep)
+data/raw/*
+!data/raw/.gitkeep
+data/processed/*
+!data/processed/.gitkeep
+
+# IDE & OS
+.vscode/
+.idea/
+.DS_Store
+*.swp
+
+# Biến môi trường
+.env
