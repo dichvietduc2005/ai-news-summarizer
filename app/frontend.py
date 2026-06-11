@@ -2,9 +2,7 @@ import streamlit as st
 import requests
 
 st.set_page_config(page_title="AI News Summarizer", layout="wide")
-st.title("📰 Hệ thống Tóm tắt & Dịch thuật Báo chí AI")
-st.subheader("Đồ án tốt nghiệp - Thành viên: Trung Kiên")
-
+st.title("📰 Hệ thống Tóm tắt & Dịch thuật AI")
 BACKEND_URL = "http://127.0.0.1:8000/process"
 
 # ĐÃ SỬA: Xóa gap="large" để trên điện thoại không bị một khoảng trống quá xa
@@ -24,10 +22,14 @@ with col_input:
         with c1:
             language_option = st.selectbox("Ngôn ngữ đầu vào:", ["auto", "vi", "en"])
         with c2:
-            max_words_option = st.slider("Ngưỡng từ an toàn TextRank:", 100, 1000, 700, 50)
+            max_words_option = st.slider(
+                "Ngưỡng từ an toàn TextRank:", 100, 1000, 700, 50
+            )
 
     st.write("### ⚙️ 2. Tuỳ chọn xử lý")
-    need_translation = st.checkbox("🌐 Kèm theo bản Dịch thuật (Anh <-> Việt)", value=False)
+    need_translation = st.checkbox(
+        "🌐 Kèm theo bản Dịch thuật (Anh <-> Việt)", value=False
+    )
 
     process_btn = st.button("🚀 Bắt đầu Xử lý", type="primary")
 
@@ -60,13 +62,19 @@ with col_output:
                             translation = data.get("translation", "")
                             entities = data.get("entities", [])
 
-                            st.success(f"✅ Đã nhận diện ngôn ngữ: **{detected_lang.upper()}**")
+                            st.success(
+                                f"✅ Đã nhận diện ngôn ngữ: **{detected_lang.upper()}**"
+                            )
 
                             if not need_translation:
-                                st.info(f"📝 **Bản Tóm Tắt ({'Tiếng Việt' if detected_lang == 'vi' else 'Tiếng Anh'})**")
+                                st.info(
+                                    f"📝 **Bản Tóm Tắt ({'Tiếng Việt' if detected_lang == 'vi' else 'Tiếng Anh'})**"
+                                )
                                 st.write(summary)
                             else:
-                                tab1, tab2 = st.tabs(["📝 Bản Tóm Tắt", "🔤 Bản Dịch Thuật"])
+                                tab1, tab2 = st.tabs(
+                                    ["📝 Bản Tóm Tắt", "🔤 Bản Dịch Thuật"]
+                                )
                                 with tab1:
                                     st.write(summary)
                                 with tab2:
@@ -77,7 +85,6 @@ with col_output:
                         else:
                             st.error(f"❌ Backend lỗi: {response.status_code}")
                     except Exception as e:
-                        st.error(f"❌ Lỗi kết nối Backend. Hãy chắc chắn Uvicorn đang chạy. Lỗi: {str(e)}")
-        else:
-            # Thông báo mặc định khi người dùng chưa bấm nút
-            st.info("👈 Hãy dán bài báo và bấm nút Xử lý ở cột bên trái để xem kết quả tại đây.")
+                        st.error(
+                            f"❌ Lỗi kết nối Backend. Hãy chắc chắn Uvicorn đang chạy. Lỗi: {str(e)}"
+                        )
