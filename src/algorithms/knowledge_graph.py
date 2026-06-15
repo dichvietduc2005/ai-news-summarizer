@@ -22,11 +22,11 @@ NER_MODEL_NAME = "Davlan/bert-base-multilingual-cased-ner-hrl"
 # Các nhãn thực thể mà chúng ta quan tâm
 VALID_LABELS = {"PER", "ORG", "LOC"}
 
-# Bảng màu cho từng loại thực thể (dùng cho Pyvis)
+# Bảng màu cho từng loại thực thể (dùng cho Pyvis) - Độ tương phản cao
 LABEL_COLORS = {
-    "PER": "#3498db",   # Xanh dương - Người (Person)
-    "ORG": "#e67e22",   # Cam - Tổ chức (Organization)
-    "LOC": "#f1c40f",   # Vàng hổ phách - Địa điểm (Location)
+    "PER": "#00f0ff",   # Neon Cyan (Xanh ngọc sáng) - Người
+    "ORG": "#f1c40f",   # Bright Yellow (Vàng tươi) - Tổ chức
+    "LOC": "#ff7675",   # Soft Coral (Đỏ san hô) - Địa điểm
 }
 
 # Biến toàn cục để cache pipeline NER (Lazy Loading - chỉ tải 1 lần)
@@ -226,8 +226,7 @@ def build_knowledge_graph(entities: list, output_path: str = "graph.html"):
             name,
             label=name,
             color=color,
-            title=f"Thực thể: {name}<br>Phân loại: {label}",  # Tooltip khi hover node
-            group=label
+            title=f"Thực thể: {name}\nPhân loại: {label}"  # Tooltip khi hover node
         )
 
     print(f"[KG] Đã thêm {len(unique_entities)} nodes vào đồ thị.")
@@ -264,11 +263,11 @@ def build_knowledge_graph(entities: list, output_path: str = "graph.html"):
         # Tạo nhãn tooltip cho đường nối: gom các câu chứa chúng lại
         tooltip_lines = []
         for idx, ctx in enumerate(contexts):
-            # Bôi đậm 2 thực thể trong câu để dễ nhìn
-            highlighted = ctx.replace(e1, f"<b>{e1}</b>").replace(e2, f"<b>{e2}</b>")
+            # Làm nổi bật thực thể bằng cách viết hoa hoặc đánh dấu bằng dấu ngoặc vuông
+            highlighted = ctx.replace(e1, f"[{e1.upper()}]").replace(e2, f"[{e2.upper()}]")
             tooltip_lines.append(f"{idx+1}. ... {highlighted} ...")
             
-        tooltip = "<b>Ngữ cảnh xuất hiện:</b><br>" + "<br>".join(tooltip_lines)
+        tooltip = "Ngữ cảnh xuất hiện:\n" + "\n".join(tooltip_lines)
 
         G.add_edge(e1, e2, weight=weight, title=tooltip)
         edge_count += 1

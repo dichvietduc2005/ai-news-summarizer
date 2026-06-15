@@ -22,3 +22,10 @@ data/processed/*
 
 # Biến môi trường
 .env
+
+# Đồ thị tri thức được tạo ra cục bộ
+data/knowledge_graph.html
+lib/
+
+# Cấu hình IDE cá nhân
+pyrefly.toml
