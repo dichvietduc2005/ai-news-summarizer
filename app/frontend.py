@@ -1,11 +1,11 @@
-import streamlit as st
 import requests
+import streamlit as st
 
 st.set_page_config(page_title="AI News Summarizer", layout="wide")
 st.title("📰 Hệ thống Tóm tắt & Dịch thuật AI")
 BACKEND_URL = "http://127.0.0.1:8000/process"
 
-# ĐÃ SỬA: Xóa gap="large" để trên điện thoại không bị một khoảng trống quá xa
+# Xóa gap="large" để trên điện thoại không bị một khoảng trống quá xa
 col_input, col_output = st.columns([1, 1])
 
 # ================= CỘT 1: NHẬP LIỆU =================
@@ -17,6 +17,7 @@ with col_input:
         placeholder="Ví dụ: Thủ tướng Chính phủ vừa ban hành nghị định mới...",
     )
 
+    # ĐÃ SỬA: Sửa lại thụt lề (indentation) cho đúng cấp bậc của with col_input
     with st.expander("⚙️ Cài đặt hệ thống (Nâng cao)"):
         c1, c2 = st.columns([1, 1])
         with c1:
@@ -27,19 +28,33 @@ with col_input:
             )
 
     st.write("### ⚙️ 2. Tuỳ chọn xử lý")
+
     need_translation = st.checkbox(
         "🌐 Kèm theo bản Dịch thuật (Anh <-> Việt)", value=False
     )
+
+    # Kiên (TV4) thêm: Lựa chọn luồng dịch theo yêu cầu
+    translation_mode = "summary"
+    if need_translation:
+        translation_mode = st.radio(
+            "Chọn nội dung cần dịch:",
+            options=["summary", "full_text"],
+            format_func=lambda x: (
+                "Dịch bản tóm tắt" if x == "summary" else "Dịch toàn bộ văn bản gốc"
+            ),
+            horizontal=True,
+        )
 
     process_btn = st.button("🚀 Bắt đầu Xử lý", type="primary")
 
 
 # ================= CỘT 2: KẾT QUẢ =================
 with col_output:
-    # ĐÃ SỬA: Gói khối kết quả vào st.container() để ép layout bám sát lại trên Mobile
+    # Gói khối kết quả vào st.container() để ép layout bám sát lại trên Mobile
     with st.container():
         st.write("### 📊 Kết quả Xử lý")
 
+        # ĐÃ SỬA: Căn thẳng lề lại cho đúng vị trí bên trong 'with st.container()'
         if process_btn:
             if not raw_text_input.strip():
                 st.error("⚠️ Vui lòng dán nội dung bài báo ở cột bên trái trước!")
@@ -50,7 +65,9 @@ with col_output:
                             "raw_text": raw_text_input,
                             "language": language_option,
                             "max_words": max_words_option,
+                            "translation_mode": translation_mode,
                         }
+
                         response = requests.post(BACKEND_URL, json=payload)
 
                         if response.status_code == 200:

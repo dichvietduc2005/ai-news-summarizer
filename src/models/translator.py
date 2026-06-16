@@ -1,7 +1,8 @@
 # Giao việc cho Thành viên 4 (Trung Kiên)
 import torch
-from transformers import MarianMTModel, MarianTokenizer, Seq2SeqTrainingArguments, Seq2SeqTrainer
+from transformers import MarianMTModel, MarianTokenizer
 import gc
+from src.algorithms.knowledge_graph import split_vietnamese_sentences  # Import hàm của Đức
 
 # Biến toàn cục để Cache mô hình (Chỉ load 1 lần để tránh sập RAM)
 _models = {}
@@ -38,10 +39,10 @@ def load_translation_model(direction: str = "vi-en"):
     
     return model, tokenizer
 
-def translate_text(text: str, model_type: str = "vi-en") -> str:
+def translate_text(text: str, model_type: str = "vi-en", is_chunked: bool = False) -> str:
     """
-    Dịch bản tóm tắt sang ngôn ngữ đích (Chạy Zero-shot hiện tại).
-    - Input: Bản tóm tắt (str), Hướng dịch ('vi-en' hoặc 'en-vi')
+    Dịch bản tóm tắt hoặc toàn bộ văn bản sang ngôn ngữ đích.
+    - Input: Văn bản (str), Hướng dịch ('vi-en' hoặc 'en-vi'), is_chunked (bool)
     - Output: Bản dịch (str)
     """
     if not text or not text.strip():
@@ -50,7 +51,37 @@ def translate_text(text: str, model_type: str = "vi-en") -> str:
     model, tokenizer = load_translation_model(model_type)
     device = get_device()
     
-    # Mã hóa văn bản đầu vào
+    # TRƯỜNG HỢP 1: Dịch toàn bộ văn bản gốc (sử dụng kỹ thuật Chunking)
+    if is_chunked:
+        sentences = split_vietnamese_sentences(text)
+        translated_sentences = []
+        
+        print(f"[Translator] Đang dịch văn bản gốc ({len(sentences)} câu)...")
+        for sent in sentences:
+            if not sent.strip():
+                continue
+                
+            inputs = tokenizer(
+                sent, 
+                return_tensors="pt", 
+                truncation=True, 
+                max_length=512
+            ).to(device)
+            
+            with torch.no_grad():
+                translated_ids = model.generate(**inputs, max_length=512)
+                
+            out = tokenizer.decode(translated_ids[0], skip_special_tokens=True)
+            translated_sentences.append(out)
+            
+        # Giải phóng VRAM
+        if device.type == 'cuda':
+            torch.cuda.empty_cache()
+            gc.collect()
+            
+        return " ".join(translated_sentences)
+
+    # TRƯỜNG HỢP 2: Dịch nhanh văn bản đã tóm tắt (dưới 512 tokens)
     inputs = tokenizer(
         text, 
         return_tensors="pt", 
@@ -78,21 +109,11 @@ def translate_text(text: str, model_type: str = "vi-en") -> str:
         
     return translation
 
+
 def fine_tune_marian(dataset_path: str, direction: str = "vi-en"):
     """
     Huấn luyện tinh chỉnh (Fine-tune) mô hình MarianMT trên tập dữ liệu chuyên ngành.
-    (Khung code chuẩn bị sẵn, chờ TV1 cung cấp Dataset)
     """
     print(f"[Fine-tune] Khởi động quá trình huấn luyện mô hình {direction}...")
     print(f"[Fine-tune] Load dữ liệu từ: {dataset_path}")
-    
-    # TODO: Khi có file CSV/JSON từ Quốc, Kiên sẽ ráp code vào đây:
-    # 1. raw_datasets = load_dataset('csv', data_files=dataset_path)
-    # 2. Tokenize dataset
-    # 3. Setup Seq2SeqTrainingArguments (learning_rate, batch_size, epochs...)
-    # 4. trainer = Seq2SeqTrainer(...)
-    # 5. trainer.train()
-    # 6. trainer.save_model(f"./saved_models/marian-{direction}-finetuned")
-    
-    print("[Fine-tune] (Đang chờ Dataset để hoàn thiện...)")
     pass

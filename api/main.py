@@ -19,7 +19,10 @@ app = FastAPI(
 class ArticleRequest(BaseModel):
     raw_text: str
     language: str = "auto"  # Mặc định tự động nhận diện ngôn ngữ nếu truyền "auto"
-    max_words: int = 700  # Thiết lập ngưỡng từ an toàn (SAFE_WORD_LIMIT) theo TextRank
+    max_words: int = 700  # Thiết luật ngưỡng từ an toàn (SAFE_WORD_LIMIT) theo TextRank
+    translation_mode: str = (
+        "summary"  # Chấp nhận "summary" hoặc "full_text" từ Postman/UI gửi lên
+    )
 
 
 @app.post("/process")
@@ -37,39 +40,66 @@ def process_article(request: ArticleRequest):
         # ---- Bước 1: Tiền xử lý & Làm sạch dữ liệu (Hàm của Anh Quốc) ----
         cleaned_text = clean_text(request.raw_text)
 
-        # Nhận diện ngôn ngữ tự động nếu yêu cầu là 'auto', ngược lại dùng ngôn ngữ chỉ định
+        # Chốt chặn bảo vệ nếu text rỗng
+        if not cleaned_text or not cleaned_text.strip():
+            cleaned_text = request.raw_text
+
+        # Nhận diện ngôn ngữ tự động
         if request.language == "auto":
+            # Gọi trực tiếp hàm ĐÃ HOÀN THIỆN của Quốc
             lang = detect_language(cleaned_text)
+
+            # Chốt chặn cuối cùng phòng hờ hệ thống không nhận diện được
+            if not lang or lang not in ["vi", "en"]:
+                lang = "vi"
         else:
             lang = request.language if request.language in ["vi", "en"] else "vi"
 
         # ---- Bước 2: Nén văn bản bằng Semantic TextRank (Hàm của Viết Đức) ----
-        # Giúp cắt giảm độ dài văn bản gốc, tránh lỗi tràn 512 tokens khi đưa vào mô hình LLM
         extracted_text = process_textrank(
             cleaned_text, language=lang, max_words=request.max_words
         )
 
-        # ---- Bước 3: Trích xuất thực thể NER (Hàm của Viết Đức) ----
-        # Phục vụ cho việc vẽ Đồ thị tri thức (Knowledge Graph) ở Frontend
-        entities = extract_entities(cleaned_text)
+        # CHỐT CHẶN BẢO VỆ 3: Đề phòng TextRank trả về rỗng
+        if not extracted_text:
+            extracted_text = cleaned_text
 
-        # ---- Bước 4: Tóm tắt văn bản bằng ViT5 / mT5-XLSum (Hàm của Trọng Nghĩa) ----
+        # ---- Bước 3: Trích xuất thực thể NER (Hàm của Viết Đức) ----
+        entities = extract_entities(cleaned_text)
+        if entities is None:
+            entities = []
+
+        # ---- Bước 4: Tóm tắt văn bản bằng ViT5 / mT5-XLSum (Hàm THẬT của Trọng Nghĩa) ----
         summary = generate_summary(extracted_text, language=lang)
 
-        # ---- Bước 5: Mở rộng Dịch thuật bằng MarianMT (Hàm của Trung Kiên) ----
-        # Phân luồng xử lý theo Trường hợp 1 (vi -> en) hoặc Trường hợp 2 (en -> vi)
+        # CHỐT CHẶN BẢO VỆ 4: Đề phòng mô hình tóm tắt bị trả về rỗng, lấy tạm extracted_text để Kiên dịch
+        if not summary or not summary.strip():
+            summary = extracted_text
+
+        # ---- Bước 5: Mở rộng Dịch thuật bằng MarianMT (Hàm THẬT của Trung Kiên) ----
         if lang == "vi":
             direction = "vi-en"
         else:
             direction = "en-vi"
 
-        translation = translate_text(summary, model_type=direction)
+        # Kiểm tra kịch bản kiểm thử từ trường translation_mode gửi lên
+        if request.translation_mode == "full_text":
+            # Kịch bản 2: Dịch toàn bộ văn bản gốc (sử dụng Chunking của Kiên)
+            translation = translate_text(
+                cleaned_text, model_type=direction, is_chunked=True
+            )
+        else:
+            # Kịch bản 1: Chỉ dịch bản tóm tắt ngắn (Luồng mặc định)
+            translation = translate_text(
+                summary, model_type=direction, is_chunked=False
+            )
 
-        # ---- Bước 6: Trả kết quả chuẩn JSON về Frontend ----
+        # ---- Bước 6: Trả kết quả chuẩn JSON về Frontend/Postman ----
         return {
             "status": "success",
             "detected_language": lang,
             "direction": direction,
+            "translation_mode_executed": request.translation_mode,
             "data": {
                 "summary": summary,
                 "translation": translation,
@@ -78,7 +108,7 @@ def process_article(request: ArticleRequest):
         }
 
     except Exception as e:
-        # Log lỗi hệ thống và trả về mã lỗi HTTP 500
+        # Log lỗi hệ thống chi tiết ra Terminal console để MLOps dễ Debug
         print(f"[API Error]: Đã xảy ra lỗi trong pipeline: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Lỗi hệ thống: {str(e)}")
 
@@ -86,5 +116,5 @@ def process_article(request: ArticleRequest):
 if __name__ == "__main__":
     import uvicorn
 
-    # Bật server uvicorn chạy ở port 8000 để Frontend kết nối
+    # Bật server uvicorn chạy ở port 8000 để Frontend/Postman kết nối
     uvicorn.run("api.main:app", host="0.0.0.0", port=8000, reload=True)
