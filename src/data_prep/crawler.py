@@ -3,6 +3,9 @@ from bs4 import BeautifulSoup
 import re
 import html
 from langdetect import detect, DetectorFactory
+from src.data_prep.cleaner import remove_unmatched_brackets
+from underthesea import word_tokenize # Dành cho tiếng Việt
+import nltk # Dành cho tiếng Anh
 
 # Cố định seed để langdetect luôn ổn định
 DetectorFactory.seed = 0
@@ -95,3 +98,27 @@ def detect_language(text: str) -> str:
         return "vi" # Nếu ra ngôn ngữ khác, fallback về 'vi' cho dự án
     except:
         return "vi"
+def tokenize_words(text: str, language: str = 'vi') -> list:
+    """
+    Hàm tách từ chuyên sâu (Word Tokenization) phục vụ cho thống kê,
+    làm TextRank truyền thống hoặc trích xuất Đồ thị tri thức (NER).
+    """
+    if not text or not text.strip():
+        return []
+        
+    if language == 'en':
+        # Tách từ tiếng Anh bằng NLTK
+        return nltk.word_tokenize(text)
+    else:
+        # Tách từ tiếng Việt bằng Underthesea (giữ nguyên khoảng trắng của từ phức)
+        # Kết quả: ["Trí tuệ", "nhân tạo", "đang", "phát triển"]
+        return word_tokenize(text)
+
+def tokenize_words_for_graph(text: str, language: str = 'vi') -> str:
+    """
+    Hàm tách từ nối dấu gạch dưới phục vụ riêng cho Đồ thị Tri thức / NER.
+    Kết quả: "Trí_tuệ nhân_tạo đang phát_triển"
+    """
+    if language == 'en' or not text:
+        return text
+    return word_tokenize(text, format="text")
