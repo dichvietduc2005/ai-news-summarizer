@@ -10,44 +10,6 @@ import nltk # Dành cho tiếng Anh
 # Cố định seed để langdetect luôn ổn định
 DetectorFactory.seed = 0
 
-def crawl_article(url: str) -> str:
-    """
-    Hàm cào dữ liệu báo chí từ URL bằng BeautifulSoup.
-    Tự động trích xuất nội dung chính từ các thẻ paragraph (<p>).
-    """
-    if not url or not url.startswith(("http://", "https://")):
-        return ""
-        
-    try:
-        # Cấu hình Header giả lập trình duyệt để tránh bị các báo block IP
-        headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-        }
-        response = requests.get(url, headers=headers, timeout=10)
-        response.encoding = response.apparent_encoding # Tự động sửa lỗi font tiếng Việt
-        
-        if response.status_code != 200:
-            return ""
-            
-        soup = BeautifulSoup(response.text, 'html.parser')
-        
-        # Tìm tất cả các thẻ <p> (thẻ đoạn văn phổ biến của bài báo)
-        paragraphs = soup.find_all('p')
-        
-        text_content = []
-        for p in paragraphs:
-            p_text = p.get_text().strip()
-            # Lọc bỏ các đoạn quá ngắn (thường là text của nút bấm, menu hoặc quảng cáo ẩn)
-            if len(p_text.split()) > 8:
-                text_content.append(p_text)
-                
-        # Gộp các đoạn văn lại với nhau ngăn cách bằng dấu xuống dòng
-        return "\n".join(text_content)
-        
-    except Exception as e:
-        print(f"[Crawler Error] Lỗi khi cào link {url}: {str(e)}")
-        return ""
-
 def clean_text(raw_text: str) -> str:
     """
     Hàm làm sạch văn bản (xóa HTML, ký tự đặc biệt, sửa lỗi ngoặc mồ côi và Excel Injection).
@@ -122,3 +84,22 @@ def tokenize_words_for_graph(text: str, language: str = 'vi') -> str:
     if language == 'en' or not text:
         return text
     return word_tokenize(text, format="text")
+if __name__ == "__main__":
+    print("=" * 60)
+    print("TEST: Kiểm tra hàm làm sạch văn bản clean_text")
+    print("=" * 60)
+
+    # Đoạn văn bản mẫu cố tình chứa nhiều lỗi rác phổ biến từ Crawler
+    sample_raw_text = """
+   tôi muốn lấy thông tin của những người có cùng khóa học đã đăng ký đó tạo 1 danh sách sửa lại chức năng chat socket 1-1 cho những người có chung khóa học bao, giao diện chat như hình bên trái là list người chung khóa hoc (gồn student , giáo viên , phụ huynh , miễn là có trong khóa học) , bên phải là giao diện chat và tạo 1 nút chat ở StudentLearningPage.jsx để mỗi khóa có thể nhấn vào và hiện lên list danh sách khóa học đó
+    """
+
+    print("\n[1] VĂN BẢN GỐC (Dùng repr() để thấy rõ các ký tự ẩn và khoảng trắng):")
+    print(repr(sample_raw_text)) 
+
+    # Gọi hàm làm sạch
+    cleaned_result = clean_text(sample_raw_text)
+
+    print("\n[2] KẾT QUẢ SAU KHI LÀM SẠCH:")
+    print(repr(cleaned_result))
+    print("=" * 60)
