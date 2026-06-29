@@ -25,6 +25,13 @@ def clean_news_noise(text):
     # 3. Xóa số điện thoại (Bắt đầu bằng số 0, dài từ 10-11 chữ số)
     text = re.sub(r'\b0\d{9,10}\b', '', text)
 
+    text = re.sub(
+    r'[^.!?]{10,200}\s+ẢNH:\s*[@A-Za-zÀ-Ỹà-ỹ0-9_.\- ]{2,80}',
+    '. ',
+    text,
+    flags=re.IGNORECASE
+    )
+
     # Xử lý theo từng dòng để tránh toán tử .* xóa lẹm sang các đoạn văn khác
     lines = text.split('\n')
     cleaned_lines = []
