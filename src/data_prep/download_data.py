@@ -15,10 +15,10 @@ def download_dataset_from_drive():
 
     # 2. Thay thế bằng ID file THẬT của bạn trên Drive
     # Ví dụ ID của file summary_data.csv
-    summary_file_id = '1DdD9U9ZzDJqfA4H_wX-jZzNhhDOoyVqT'
+    summary_file_id = '1jEfhxgLExHVXbVs-SzFQ2pch6qbIXM7Y'
     
     # Ví dụ ID của file translation_data.csv
-    translation_file_id = '1raTqb9qM_4KG1Jc2w71mGSl7nrMw7mpx'
+    translation_file_id = '1CIsjqgsE5Qnu4Cz4FxIp_Eib3myjzxve'
 
     # Tạo URL tải trực tiếp từ gdown
     summary_url = f'https://drive.google.com/uc?id={summary_file_id}'

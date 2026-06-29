@@ -7,6 +7,54 @@ from langdetect import detect, DetectorFactory
 # Đảm bảo kết quả nhận diện ngôn ngữ luôn ổn định qua các lần chạy
 DetectorFactory.seed = 0
 
+def clean_news_noise(text):
+    """
+    Bổ sung các bộ lọc nhiễu đặc thù của báo chí (Dành riêng cho tập Summary):
+    - Xóa link, email, số điện thoại toàn cục.
+    - Duyệt từng dòng để xóa quảng cáo (Xem thêm, Đọc thêm...), caption ảnh, dòng tác giả, thời gian đăng.
+    """
+    if not isinstance(text, str):
+        return text
+
+    # 1. Xóa link (Xử lý cả http, https và www.)
+    text = re.sub(r'https?://\S+|www\.\S+|http\S+', '', text)
+
+    # 2. Xóa email
+    text = re.sub(r'\S+@\S+', '', text)
+
+    # 3. Xóa số điện thoại (Bắt đầu bằng số 0, dài từ 10-11 chữ số)
+    text = re.sub(r'\b0\d{9,10}\b', '', text)
+
+    # Xử lý theo từng dòng để tránh toán tử .* xóa lẹm sang các đoạn văn khác
+    lines = text.split('\n')
+    cleaned_lines = []
+
+    for line in lines:
+        line_str = line.strip()
+        if not line_str:
+            continue
+
+        # 4. Xóa dòng thời gian đăng (VD: 27/06/2026 10:35 GMT+7 hoặc 29-06-2026)
+        if re.match(r'^\d{2}[/\-]\d{2}[/\-]\d{4}', line_str):
+            continue
+
+        # 5. Xóa caption ảnh, nguồn, đồ họa, tác giả ở đầu dòng (VD: Ảnh: Nhật Thịnh, Tác giả: Minh Hải)
+        if re.match(r'^(Ảnh|Nguồn|Đồ họa|Tác giả)[:\s]', line_str, re.IGNORECASE):
+            continue
+
+        # 6. Xóa dòng trích dẫn thông tấn (VD: Theo Reuters, Theo AFP, Theo TTXVN)
+        if re.match(r'^Theo\s+(Reuters|AFP|TTXVN|Thanh Niên|Tuổi Trẻ)\b', line_str, re.IGNORECASE):
+            continue
+
+        # 7. Xóa quảng cáo / noise lơ lửng (Xem thêm..., Đọc thêm..., Tin liên quan...) đến hết dòng
+        line_str = re.sub(r'(Xem thêm|Đọc thêm|Mời bạn đọc|Theo dõi|Tin liên quan|Video|Bạn đọc quan tâm).*', '', line_str, flags=re.IGNORECASE)
+        
+        # Nếu sau khi lọc dòng đó vẫn còn chữ thì giữ lại
+        if line_str.strip():
+            cleaned_lines.append(line_str.strip())
+
+    return '\n'.join(cleaned_lines)
+
 def remove_unmatched_brackets(text):
     """
     Sử dụng Stack để tìm và xóa các dấu ngoặc (), [], {} không có cặp.
@@ -49,6 +97,11 @@ def clean_text_base(text):
     # 2. Giải mã HTML entities sót lại (VD: &quot;, &amp;)
     text = html.unescape(text)
     
+    # --- BỔ SUNG TẠI ĐÂY ---
+    # Xóa các tag múi giờ rác nằm trong ngoặc vuông hoặc ngoặc đơn dạng [UTC+200], (UTC+7), [GMT+7]
+    text = re.sub(r'[\[\(](UTC|GMT)[+\-]?\d+[\]\)]', '', text, flags=re.IGNORECASE)
+    # -----------------------
+    
     # 3. Xóa các dấu ngoặc () [] {} bị mồ côi bằng Stack
     text = remove_unmatched_brackets(text)
     
@@ -87,9 +140,9 @@ def clean_summary_dataset(input_path, output_path):
     # Drop NA & Duplicates
     df = df.dropna().drop_duplicates()
     
-    # Làm sạch văn bản qua 파ipeline
-    df['text'] = df['text'].apply(clean_text_base)
-    df['summary'] = df['summary'].apply(clean_text_base)
+    # PIPELINE CẢI TIẾN: Lọc nhiễu báo chí trước -> Sau đó chuẩn hóa base
+    df['text'] = df['text'].apply(lambda x: clean_text_base(clean_news_noise(x)))
+    df['summary'] = df['summary'].apply(lambda x: clean_text_base(clean_news_noise(x)))
     df = df[(df['text'] != '') & (df['summary'] != '')]
     
     # Lọc logic độ dài (Bản gốc phải >= 30 từ, và dài hơn bản tóm tắt)
@@ -111,7 +164,7 @@ def clean_translation_dataset(input_path, output_path):
     # Drop NA & Duplicates
     df = df.dropna().drop_duplicates()
     
-    # Làm sạch văn bản qua 파ipeline
+    # Tập dịch thuật chỉ chạy qua bộ clean base (Giữ nguyên gốc để tránh mất cấu trúc câu song ngữ)
     df['vi_text'] = df['vi_text'].apply(clean_text_base)
     df['en_text'] = df['en_text'].apply(clean_text_base)
     df = df[(df['vi_text'] != '') & (df['en_text'] != '')]
@@ -135,7 +188,7 @@ def clean_translation_dataset(input_path, output_path):
     print(f"-> Đã lưu {len(clean_df)} dòng song ngữ sạch vào {output_path}\n")
 
 if __name__ == "__main__":
-    # Setup đường dẫn tương đối (từ src/data_prep ra ngoài thư mục gốc)
+    # Setup đường dẫn tương đối
     RAW_DIR = "data/raw"
     PROCESSED_DIR = "data/processed"
     
