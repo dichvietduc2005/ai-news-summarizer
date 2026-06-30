@@ -3,12 +3,12 @@ __pycache__/
 *.py[cod]
 *$py.class
 
-# Môi trường ảo (Tuyệt đối không đẩy lên Git)
+# Môi trường ảo
 venv/
 env/
 ENV/
 
-# Dữ liệu (Chỉ giữ lại thư mục rỗng nhờ file .gitkeep)
+# Dữ liệu
 data/raw/*
 !data/raw/.gitkeep
 data/processed/*
@@ -29,3 +29,6 @@ lib/
 
 # Cấu hình IDE cá nhân
 pyrefly.toml
+
+# Thư mục static sinh ra đồ thị tri thức local
+static/

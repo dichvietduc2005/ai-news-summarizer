@@ -1,10 +1,12 @@
+import os
 from fastapi import FastAPI, HTTPException
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 # Import các hàm xử lý từ các thành viên trong nhóm
 from src.data_prep.crawler import clean_text, detect_language  # Từ Anh Quốc (TV1)
 from src.algorithms.textrank import process_textrank  # Từ Viết Đức (TV2)
-from src.algorithms.knowledge_graph import extract_entities  # Từ Viết Đức (TV2)
+from src.algorithms.knowledge_graph import extract_entities, build_knowledge_graph  # Từ Viết Đức (TV2)
 from src.models.summarizer import generate_summary  # Từ Trọng Nghĩa (TV3)
 from src.models.translator import translate_text  # Từ Trung Kiên (TV4)
 
@@ -13,6 +15,10 @@ app = FastAPI(
     description="API Gateway kết nối các luồng Tiền xử lý, TextRank, NER, Tóm tắt và Dịch thuật.",
     version="1.0.0",
 )
+
+# Tạo thư mục static để host file Đồ thị Tri thức
+os.makedirs("static", exist_ok=True)
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 
 # Định nghĩa Schema đầu vào bằng Pydantic
@@ -23,6 +29,7 @@ class ArticleRequest(BaseModel):
     translation_mode: str = (
         "summary"  # Chấp nhận "summary" hoặc "full_text" từ Postman/UI gửi lên
     )
+    is_test_mode: bool = False  # Chế độ máy yếu (bỏ qua mô hình nặng)
 
 
 @app.post("/process")
@@ -68,9 +75,22 @@ def process_article(request: ArticleRequest):
         entities = extract_entities(cleaned_text)
         if entities is None:
             entities = []
+            
+        # Tự động vẽ và lưu Đồ thị tri thức (Knowledge Graph)
+        graph_url = None
+        if len(entities) > 0:
+            try:
+                # Lưu đè file graph.html vào thư mục static (FastAPI sẽ serve thư mục này)
+                build_knowledge_graph(entities, output_path="static/graph.html")
+                graph_url = "http://127.0.0.1:8000/static/graph.html"
+            except Exception as e:
+                print(f"[KG Error]: Lỗi khi vẽ đồ thị: {e}")
 
         # ---- Bước 4: Tóm tắt văn bản bằng ViT5 / mT5-XLSum (Hàm THẬT của Trọng Nghĩa) ----
-        summary = generate_summary(extracted_text, language=lang)
+        if request.is_test_mode:
+            summary = "[TEST MODE] Đây là bản tóm tắt giả lập. Đã bỏ qua mô hình ViT5 (900MB) để tránh quá tải RAM cho máy yếu. Thực thể và đồ thị vẫn hoạt động dựa trên văn bản gốc."
+        else:
+            summary = generate_summary(extracted_text, language=lang)
 
         # CHỐT CHẶN BẢO VỆ 4: Đề phòng mô hình tóm tắt bị trả về rỗng, lấy tạm extracted_text để Kiên dịch
         if not summary or not summary.strip():
@@ -82,17 +102,20 @@ def process_article(request: ArticleRequest):
         else:
             direction = "en-vi"
 
-        # Kiểm tra kịch bản kiểm thử từ trường translation_mode gửi lên
-        if request.translation_mode == "full_text":
-            # Kịch bản 2: Dịch toàn bộ văn bản gốc (sử dụng Chunking của Kiên)
-            translation = translate_text(
-                cleaned_text, model_type=direction, is_chunked=True
-            )
+        if request.is_test_mode:
+            translation = "[TEST MODE] This is a mock translation. Bypassed MarianMT model to save RAM."
         else:
-            # Kịch bản 1: Chỉ dịch bản tóm tắt ngắn (Luồng mặc định)
-            translation = translate_text(
-                summary, model_type=direction, is_chunked=False
-            )
+            # Kiểm tra kịch bản kiểm thử từ trường translation_mode gửi lên
+            if request.translation_mode == "full_text":
+                # Kịch bản 2: Dịch toàn bộ văn bản gốc (sử dụng Chunking của Kiên)
+                translation = translate_text(
+                    cleaned_text, model_type=direction, is_chunked=True
+                )
+            else:
+                # Kịch bản 1: Chỉ dịch bản tóm tắt ngắn (Luồng mặc định)
+                translation = translate_text(
+                    summary, model_type=direction, is_chunked=False
+                )
 
         # ---- Bước 6: Trả kết quả chuẩn JSON về Frontend/Postman ----
         return {
@@ -104,6 +127,7 @@ def process_article(request: ArticleRequest):
                 "summary": summary,
                 "translation": translation,
                 "entities": entities,
+                "graph_url": graph_url
             },
         }
 
@@ -117,4 +141,5 @@ if __name__ == "__main__":
     import uvicorn
 
     # Bật server uvicorn chạy ở port 8000 để Frontend/Postman kết nối
-    uvicorn.run("api.main:app", host="0.0.0.0", port=8000, reload=True)
+    # Chỉ reload khi có thay đổi trong thư mục api và src để tránh quét venv gây tràn tài nguyên Windows
+    uvicorn.run("api.main:app", host="0.0.0.0", port=8000, reload=True, reload_dirs=["api", "src"])

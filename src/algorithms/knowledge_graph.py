@@ -292,7 +292,7 @@ def build_knowledge_graph(entities: list, output_path: str = "graph.html"):
         from pyvis.network import Network
 
         net = Network(
-            height="720px",
+            height="100vh",
             width="100%",
             bgcolor="#1a1a2e",     # Nền tối (Dark mode) sang trọng
             font_color="white",
@@ -362,6 +362,7 @@ def build_knowledge_graph(entities: list, output_path: str = "graph.html"):
 
         # ---- Cải tiến 2: Thêm Bảng chú giải (Legend) góc đồ thị bằng HTML chèn thêm ----
         legend_html = f"""
+        <style>body {{ margin: 0; padding: 0; overflow: hidden; background-color: #1a1a2e; }}</style>
         <div style="
             position: absolute;
             top: 20px;
