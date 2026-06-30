@@ -4,7 +4,61 @@ import streamlit as st
 import streamlit.components.v1 as components
 
 st.set_page_config(page_title="AI News Summarizer", layout="wide")
-st.title("📰 Hệ thống Tóm tắt & Dịch thuật AI")
+
+# --- NHÚNG GOOGLE FONTS & MATERIAL ICONS ---
+st.markdown(
+    """
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&display=swap" rel="stylesheet">
+    <style>
+        /* Áp dụng font Outfit cho toàn bộ app */
+        html, body, [class*="css"], .stMarkdown {
+            font-family: 'Outfit', sans-serif !important;
+        }
+        /* Style cho Google Icons */
+        .google-icon {
+            font-family: 'Material Symbols Outlined';
+            font-weight: normal;
+            font-style: normal;
+            font-size: 24px;
+            line-height: 1;
+            letter-spacing: normal;
+            text-transform: none;
+            display: inline-block;
+            white-space: nowrap;
+            word-wrap: normal;
+            direction: ltr;
+            -webkit-font-smoothing: antialiased;
+            vertical-align: middle;
+            margin-right: 8px;
+        }
+        /* Icon trong các tiêu đề lớn */
+        .header-icon {
+            font-size: 32px;
+            color: #1a73e8;
+        }
+        /* Đè lại style tiêu đề chính */
+        .main-title {
+            font-family: 'Outfit', sans-serif;
+            font-weight: 600;
+            color: #ffffff;
+            font-size: 2.2rem;
+            margin-bottom: 20px;
+            margin-top: 10px;
+        }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
+st.markdown(
+    """
+    <h1 class="main-title">
+        <span class="google-icon header-icon" style="color: #ffaa00;">auto_awesome</span>
+        Hệ thống Tóm tắt & Dịch thuật AI
+    </h1>
+    """,
+    unsafe_allow_html=True,
+)
 BACKEND_URL = "http://127.0.0.1:8000/process"
 
 # --- HÀM TẠO NÚT COPY ĐỘC LẬP (KHÔNG LÀM SẬP REACT, KHÔNG RELOAD TRANG) ---
@@ -60,7 +114,7 @@ col_input, col_output = st.columns([1, 1])
 
 # ================= CỘT 1: NHẬP LIỆU =================
 with col_input:
-    st.write("### 📥 1. Nhập nội dung bài báo")
+    st.markdown('<h3><span class="google-icon" style="color: #1a73e8;">article</span>1. Nhập nội dung bài báo</h3>', unsafe_allow_html=True)
     raw_text_input = st.text_area(
         "Dán toàn bộ văn bản (Tiếng Anh hoặc Tiếng Việt) vào đây:",
         height=300,
@@ -71,7 +125,7 @@ with col_input:
     if raw_text_input.strip():
         custom_copy_button(raw_text_input, "📋 Copy Văn Bản Gốc")
 
-    with st.expander("⚙️ Cài đặt hệ thống (Nâng cao)"):
+    with st.expander("Cài đặt hệ thống (Nâng cao)"):
         c1, c2 = st.columns([1, 1])
         with c1:
             language_option = st.selectbox("Ngôn ngữ đầu vào:", ["auto", "vi", "en"])
@@ -81,17 +135,17 @@ with col_input:
             )
             
         # Nút tick Test Mode (Rất hữu ích cho máy yếu)
-        is_test_mode = st.checkbox("🛠️ Chế độ Máy Yếu (Bỏ qua mô hình Tóm tắt & Dịch để tránh tràn RAM)", value=False)
+        is_test_mode = st.checkbox("Chế độ Máy Yếu (Bỏ qua mô hình Tóm tắt & Dịch để tránh tràn RAM)", value=False)
 
-    st.write("### ⚙️ 2. Tuỳ chọn xử lý")
+    st.markdown('<h3><span class="google-icon" style="color: #1a73e8;">widgets</span>2. Tuỳ chọn xử lý</h3>', unsafe_allow_html=True)
 
     action_mode = st.radio(
         "Chọn tác vụ bạn muốn thực hiện:",
         options=["summary_only", "summary_and_translate", "translate_only"],
         format_func=lambda x: {
-            "summary_only": "📝 Chỉ tóm tắt văn bản",
-            "summary_and_translate": "🌐 Tóm tắt & Dịch bản tóm tắt",
-            "translate_only": "🔤 Chỉ dịch toàn bộ văn bản gốc (Không tóm tắt)"
+            "summary_only": "Chỉ tóm tắt văn bản",
+            "summary_and_translate": "Tóm tắt & Dịch bản tóm tắt",
+            "translate_only": "Chỉ dịch toàn bộ văn bản gốc (Không tóm tắt)"
         }[x]
     )
 
@@ -99,7 +153,7 @@ with col_input:
     if action_mode == "translate_only":
         translation_mode = "full_text"
 
-    process_btn = st.button("🚀 Bắt đầu Xử lý", type="primary")
+    process_btn = st.button("Bắt đầu Xử lý", type="primary")
 
 
 # ================= CỘT 2: KẾT QUẢ =================
@@ -108,7 +162,7 @@ with col_output:
         st.session_state.saved_result = None
 
     header_placeholder = st.empty()
-    header_placeholder.write("### 📊 Kết quả Xử lý")
+    header_placeholder.markdown('<h3><span class="google-icon" style="color: #1a73e8;">auto_stories</span>Kết quả Xử lý</h3>', unsafe_allow_html=True)
 
     if process_btn:
         if not raw_text_input.strip():
@@ -148,26 +202,26 @@ with col_output:
         display_mode = res.get("used_action_mode", action_mode) 
 
         header_placeholder.markdown(
-            f"### 📊 Kết quả Xử lý &nbsp;&nbsp;&nbsp; <span style='font-size: 16px; color: #28a745;'>🟢 Nhận diện ngôn ngữ: <b>{res['detected_lang'].upper()}</b></span>", 
+            f"<h3><span class=\"google-icon\" style=\"color: #28a745;\">auto_stories</span>Kết quả Xử lý &nbsp;&nbsp;&nbsp; <span style='font-size: 16px; color: #28a745;'>🟢 Nhận diện ngôn ngữ: <b>{res['detected_lang'].upper()}</b></span></h3>", 
             unsafe_allow_html=True
         )
         
         with st.container(height=450, border=True):
             if display_mode == "summary_only":
-                st.info(f"📝 **Bản Tóm Tắt ({'Tiếng Việt' if res['detected_lang'] == 'vi' else 'Tiếng Anh'}):**")
+                st.info(f"Bản Tóm Tắt ({'Tiếng Việt' if res['detected_lang'] == 'vi' else 'Tiếng Anh'}):")
                 st.write(res['summary'])
                 text_to_copy = res['summary']
                 
             elif display_mode == "translate_only":
-                st.info(f"🔤 **Bản Dịch Toàn Bộ Văn Bản Gốc:**")
+                st.info(f"Bản Dịch Toàn Bộ Văn Bản Gốc:")
                 st.write(res['translation'])
                 text_to_copy = res['translation']
                 
             else:
-                st.markdown("📝 **Bản Tóm Tắt:**")
+                st.markdown("**Bản Tóm Tắt:**")
                 st.write(res['summary'])
                 st.divider() 
-                st.markdown("🌐 **Bản Dịch Tóm Tắt:**")
+                st.markdown("**Bản Dịch Tóm Tắt:**")
                 st.write(res['translation'])
                 text_to_copy = f"BẢN TÓM TẮT:\n{res['summary']}\n\nBẢN DỊCH TÓM TẮT:\n{res['translation']}"
 
@@ -199,5 +253,5 @@ with col_output:
             """
             st.markdown(google_btn_html, unsafe_allow_html=True)
         
-        with st.expander("📌 Xem các Thực thể trích xuất (NER)"):
+        with st.expander("Xem các Thực thể trích xuất (NER)"):
             st.json(res['entities'])
