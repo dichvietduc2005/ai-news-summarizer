@@ -10,7 +10,9 @@
 import numpy as np
 import networkx as nx
 import nltk
+from collections import defaultdict
 from sklearn.metrics.pairwise import cosine_similarity
+from sklearn.cluster import KMeans
 from sentence_transformers import SentenceTransformer
 
 # Tải bộ tách câu của NLTK (chỉ cần chạy 1 lần)
@@ -104,11 +106,44 @@ def _semantic_textrank(sentences: list, max_words: int = SAFE_WORD_LIMIT) -> str
     graph = nx.from_numpy_array(similarity_matrix)
     scores = nx.pagerank(graph, max_iter=100)
 
-    # Sắp xếp các câu theo điểm PageRank từ cao xuống thấp
-    # scores là dict {index_câu: điểm_số}
-    ranked_indices = sorted(scores, key=scores.get, reverse=True)
+    # ---- Bước 4: Phân cụm ngữ nghĩa (K-Means) và Chọn xoay vòng ----
+    if len(sentences) >= 5:
+        # Số lượng cụm K: tối đa 6, tối thiểu 2
+        num_clusters = min(6, max(2, len(sentences) // 5))
+        
+        # Phân cụm các vector câu (embeddings)
+        kmeans = KMeans(n_clusters=num_clusters, random_state=42, n_init='auto')
+        cluster_labels = kmeans.fit_predict(embeddings)
+        
+        # Nhóm index theo cụm
+        cluster_to_indices = defaultdict(list)
+        for idx, label in enumerate(cluster_labels):
+            cluster_to_indices[label].append(idx)
+            
+        # Sắp xếp câu trong từng cụm theo PageRank
+        for label in cluster_to_indices:
+            cluster_to_indices[label].sort(key=lambda x: scores.get(x, 0), reverse=True)
+            
+        print(f"[TextRank] Đã phân thành {num_clusters} cụm chủ đề ngữ nghĩa.")
+        
+        # Xoay vòng lấy câu từ các cụm
+        ranked_indices = []
+        cluster_pointers = {label: 0 for label in cluster_to_indices}
+        active_clusters = list(cluster_to_indices.keys())
+        
+        while active_clusters:
+            for label in list(active_clusters):
+                pointer = cluster_pointers[label]
+                if pointer < len(cluster_to_indices[label]):
+                    ranked_indices.append(cluster_to_indices[label][pointer])
+                    cluster_pointers[label] += 1
+                else:
+                    active_clusters.remove(label)
+    else:
+        # Ít câu thì sắp xếp thẳng theo PageRank
+        ranked_indices = sorted(scores, key=scores.get, reverse=True)
 
-    # ---- Bước 4: Chọn Top N câu (đảm bảo <= max_words từ) ----
+    # ---- Bước 5: Chọn Top N câu (đảm bảo <= max_words từ) ----
     selected_indices = []
     current_word_count = 0
 
