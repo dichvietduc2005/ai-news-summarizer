@@ -12,13 +12,13 @@ def custom_copy_button(text_to_copy, button_label):
     escaped_text = html.escape(text_to_copy)
     html_code = f"""
     <style>
-        body {{ margin: 0; padding: 0; }}
+        body {{ margin: 0; padding: 0; background-color: #0e1117; }}
         .copy-btn {{
-            border: 1px solid #d5d6d8;
+            border: 1px solid #4B4B4B;
             border-radius: 0.5rem;
             padding: 0.4rem 0.8rem;
-            background-color: #ffffff;
-            color: #31333F;
+            background-color: #262730;
+            color: #FAFAFA;
             font-size: 0.9rem;
             cursor: pointer;
             transition: all 0.2s ease-in-out;
@@ -79,6 +79,9 @@ with col_input:
             max_words_option = st.slider(
                 "Ngưỡng từ an toàn TextRank:", 100, 1000, 700, 50
             )
+            
+        # Nút tick Test Mode (Rất hữu ích cho máy yếu)
+        is_test_mode = st.checkbox("🛠️ Chế độ Máy Yếu (Bỏ qua mô hình Tóm tắt & Dịch để tránh tràn RAM)", value=False)
 
     st.write("### ⚙️ 2. Tuỳ chọn xử lý")
 
@@ -118,6 +121,7 @@ with col_output:
                         "language": language_option,
                         "max_words": max_words_option,
                         "translation_mode": translation_mode,
+                        "is_test_mode": is_test_mode,
                     }
 
                     response = requests.post(BACKEND_URL, json=payload)
@@ -193,7 +197,7 @@ with col_output:
                 Mở Đồ thị Tri thức
             </a>
             """
-            st.components.v1.html(google_btn_html, height=70)
+            st.markdown(google_btn_html, unsafe_allow_html=True)
         
         with st.expander("📌 Xem các Thực thể trích xuất (NER)"):
             st.json(res['entities'])
