@@ -1,0 +1,163 @@
+import requests
+from bs4 import BeautifulSoup
+import pandas as pd
+import re
+import concurrent.futures
+
+# Cấu hình cơ bản
+SITEMAP_INDEX = "https://thanhnien.vn/sitemap.xml"
+TARGET_ROWS = 5000
+OUTPUT_FILE = "dataset.csv"
+
+HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36"
+}
+
+# -----------------------
+# CLEAN TEXT
+# -----------------------
+def clean(text):
+    if not text:
+        return ""
+    text = re.sub(r'<[^>]+>', ' ', text)
+    text = re.sub(r'\s+', ' ', text).strip()
+    return text
+
+# -----------------------
+# LẤY URL TỪ SITEMAP XML
+# -----------------------
+def get_urls_from_sitemap(max_urls=100000):
+    print(" Đang thu thập danh sách URL từ Sitemap Thanh Niên...")
+    urls = set()
+    try:
+        r = requests.get(SITEMAP_INDEX, headers=HEADERS, timeout=10)
+        soup = BeautifulSoup(r.content, "xml") 
+        
+        sitemaps = [loc.text for loc in soup.find_all("loc") if loc.text.endswith('.xml')]
+        
+        for sm in sitemaps:
+            if len(urls) >= max_urls:
+                break
+                
+            print(f" Đang bóc tách sitemap con: {sm}")
+            try:
+                sm_r = requests.get(sm, headers=HEADERS, timeout=10)
+                sm_soup = BeautifulSoup(sm_r.content, "xml")
+                
+                for loc in sm_soup.find_all("loc"):
+                    link = loc.text
+                    if link.endswith('.htm') and not any(x in link for x in ['/video/', '/anh/', '/podcast/', '/infographic/']):
+                        urls.add(link)
+                        if len(urls) >= max_urls:
+                            break
+            except Exception as e:
+                print(f" Bỏ qua sitemap {sm} do lỗi: {e}")
+                
+    except Exception as e:
+        print(f" Lỗi khi đọc sitemap gốc: {e}")
+        
+    print(f" Đã gom được {len(urls)} URLs tiềm năng để đưa vào hàng đợi.")
+    return list(urls)
+
+# -----------------------
+# CRAWL ARTICLE (CÓ TRẢ VỀ TRẠNG THÁI)
+# -----------------------
+# -----------------------
+# CRAWL ARTICLE (CẬP NHẬT CHỐNG CHẶN VÀ MỞ RỘNG CLASS)
+# -----------------------
+def crawl_article(url):
+    try:
+        r = requests.get(url, headers=HEADERS, timeout=10)
+        if r.status_code != 200:
+            return f"Lỗi HTTP {r.status_code}", None, None
+
+        soup = BeautifulSoup(r.content, "html.parser")
+
+        # 0. KIỂM TRA XEM CÓ BỊ CHẶN (ANTI-BOT) KHÔNG
+        page_title = soup.title.text.lower() if soup.title else ""
+        if "just a moment" in page_title or "cloudflare" in page_title or "attention required" in page_title:
+            return " BỊ CHẶN BỞI CLOUDFLARE/ANTI-BOT", None, None
+
+        # 1. Lấy Summary (Sapo) - Bổ sung thêm class 'sapo' dự phòng
+        sapo_tag = soup.find(class_="detail-sapo") or soup.find(class_="sapo")
+        if not sapo_tag:
+            return "Không tìm thấy đoạn Sapo", None, None
+            
+        summary = clean(sapo_tag.text)
+        summary_words = len(summary.split())
+        
+        if not (50 <= summary_words <= 110):
+            return f"Sapo dài {summary_words} chữ (ngoài khoảng 30-80)", None, None
+
+        # 2. Lấy Text gốc - Bổ sung các class phổ biến khác của Thanh Niên
+        content_div = soup.find(class_="detail-c") or soup.find(class_="detail-content") or soup.find(class_="cms-body")
+        if not content_div:
+            return "Không tìm thấy nội dung (Sai cấu trúc HTML)", None, None
+
+        paragraphs = content_div.find_all("p")
+        if not paragraphs:
+            return "Nội dung không chứa thẻ <p> hợp lệ", None, None
+
+        text = " ".join([clean(p.text) for p in paragraphs])
+        text_words = len(text.split())
+
+        if not (400 <= text_words <= 800):
+            return f"Nội dung dài {text_words} chữ (ngoài khoảng 400-800)", None, None
+
+        # Trả về thành công
+        return "Thành công", text, summary
+    except Exception as e:
+        return f"Lỗi ngoại lệ: {e}", None, None
+
+# -----------------------
+# BUILD DATASET BẰNG MULTITHREADING
+# -----------------------
+def build():
+    urls = get_urls_from_sitemap(max_urls=80000)
+    data = []
+    
+    print(f"\n Bắt đầu crawl đa luồng mục tiêu {TARGET_ROWS} bài...")
+    
+    with concurrent.futures.ThreadPoolExecutor(max_workers=15) as executor:
+        future_to_url = {executor.submit(crawl_article, url): url for url in urls}
+        
+        for future in concurrent.futures.as_completed(future_to_url):
+            url = future_to_url[future]
+            try:
+                # Nhận thêm biến status từ hàm crawl
+                status, text, summary = future.result()
+                
+                # Nếu bóc tách thành công
+                if text and summary:
+                    data.append({
+                        "text": text,
+                        "summary": summary
+                    })
+                    print(f" [NHẬN] (Đã gom: {len(data)}/{TARGET_ROWS}) | Sapo: {len(summary.split())} chữ - Text: {len(text.split())} chữ | {url}")
+
+                    # Checkpoint: Lưu file liên tục mỗi khi lấy được 100 bài
+                    if len(data) % 100 == 0:
+                        pd.DataFrame(data).to_csv(OUTPUT_FILE, index=False, encoding="utf-8-sig")
+                        print(f" Đã lưu tạm {len(data)} dòng vào {OUTPUT_FILE}...")
+
+                    # Chốt chặn dừng chương trình khi đủ số lượng
+                    if len(data) >= TARGET_ROWS:
+                        print("🎉 Đã đủ chỉ tiêu 5000 dòng. Đang ép dừng các luồng xử lý (có thể mất vài giây)...")
+                        executor.shutdown(wait=False, cancel_futures=True)
+                        break
+                
+                # Nếu bị từ chối, in ra lý do
+                else:
+                    print(f" [BỎ QUA] (Đã gom: {len(data)}/{TARGET_ROWS}) | Lý do: {status} | {url}")
+                
+            except Exception as e:
+                print(f" [LỖI LUỒNG] {url} - {e}")
+
+    # Ghi đè tệp chung cuộc
+    final_df = pd.DataFrame(data[:TARGET_ROWS])
+    final_df.to_csv(OUTPUT_FILE, index=False, encoding="utf-8-sig") 
+    
+    print(f"🎉 HOÀN TẤT! Đã đóng gói thành công {len(final_df)} bài vào file: {OUTPUT_FILE}")
+
+if __name__ == "__main__":
+    build()
