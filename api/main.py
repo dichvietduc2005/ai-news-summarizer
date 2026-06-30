@@ -29,6 +29,7 @@ class ArticleRequest(BaseModel):
     translation_mode: str = (
         "summary"  # Chấp nhận "summary" hoặc "full_text" từ Postman/UI gửi lên
     )
+    is_test_mode: bool = False  # Chế độ máy yếu (bỏ qua mô hình nặng)
 
 
 @app.post("/process")
@@ -86,7 +87,10 @@ def process_article(request: ArticleRequest):
                 print(f"[KG Error]: Lỗi khi vẽ đồ thị: {e}")
 
         # ---- Bước 4: Tóm tắt văn bản bằng ViT5 / mT5-XLSum (Hàm THẬT của Trọng Nghĩa) ----
-        summary = generate_summary(extracted_text, language=lang)
+        if request.is_test_mode:
+            summary = "[TEST MODE] Đây là bản tóm tắt giả lập. Đã bỏ qua mô hình ViT5 (900MB) để tránh quá tải RAM cho máy yếu. Thực thể và đồ thị vẫn hoạt động dựa trên văn bản gốc."
+        else:
+            summary = generate_summary(extracted_text, language=lang)
 
         # CHỐT CHẶN BẢO VỆ 4: Đề phòng mô hình tóm tắt bị trả về rỗng, lấy tạm extracted_text để Kiên dịch
         if not summary or not summary.strip():
@@ -98,17 +102,20 @@ def process_article(request: ArticleRequest):
         else:
             direction = "en-vi"
 
-        # Kiểm tra kịch bản kiểm thử từ trường translation_mode gửi lên
-        if request.translation_mode == "full_text":
-            # Kịch bản 2: Dịch toàn bộ văn bản gốc (sử dụng Chunking của Kiên)
-            translation = translate_text(
-                cleaned_text, model_type=direction, is_chunked=True
-            )
+        if request.is_test_mode:
+            translation = "[TEST MODE] This is a mock translation. Bypassed MarianMT model to save RAM."
         else:
-            # Kịch bản 1: Chỉ dịch bản tóm tắt ngắn (Luồng mặc định)
-            translation = translate_text(
-                summary, model_type=direction, is_chunked=False
-            )
+            # Kiểm tra kịch bản kiểm thử từ trường translation_mode gửi lên
+            if request.translation_mode == "full_text":
+                # Kịch bản 2: Dịch toàn bộ văn bản gốc (sử dụng Chunking của Kiên)
+                translation = translate_text(
+                    cleaned_text, model_type=direction, is_chunked=True
+                )
+            else:
+                # Kịch bản 1: Chỉ dịch bản tóm tắt ngắn (Luồng mặc định)
+                translation = translate_text(
+                    summary, model_type=direction, is_chunked=False
+                )
 
         # ---- Bước 6: Trả kết quả chuẩn JSON về Frontend/Postman ----
         return {
