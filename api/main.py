@@ -117,4 +117,5 @@ if __name__ == "__main__":
     import uvicorn
 
     # Bật server uvicorn chạy ở port 8000 để Frontend/Postman kết nối
-    uvicorn.run("api.main:app", host="0.0.0.0", port=8000, reload=True)
+    # Chỉ reload khi có thay đổi trong thư mục api và src để tránh quét venv gây tràn tài nguyên Windows
+    uvicorn.run("api.main:app", host="0.0.0.0", port=8000, reload=True, reload_dirs=["api", "src"])
