@@ -129,7 +129,8 @@ with col_output:
                             "detected_lang": result.get("detected_language", "vi"),
                             "summary": result.get("data", {}).get("summary", ""),
                             "translation": result.get("data", {}).get("translation", ""),
-                            "entities": result.get("data", {}).get("entities", [])
+                            "entities": result.get("data", {}).get("entities", []),
+                            "graph_url": result.get("data", {}).get("graph_url", None)
                         }
                     else:
                         st.error(f"❌ Backend lỗi: {response.status_code}")
@@ -169,6 +170,30 @@ with col_output:
         # NÚT COPY KẾT QUẢ ĐẦU RA AN TOÀN
         if text_to_copy:
             custom_copy_button(text_to_copy, "📋 Copy Kết Quả")
+            
+        graph_url = res.get("graph_url")
+        if graph_url:
+            # Nút bấm HTML/CSS cực xịn theo phong cách Material Design (Google) không dùng icon
+            google_btn_html = f"""
+            <a href="{graph_url}" target="_blank" style="
+                display: inline-block;
+                margin-top: 15px;
+                padding: 10px 24px;
+                background-color: #1a73e8;
+                color: #ffffff;
+                font-family: 'Google Sans', Roboto, Arial, sans-serif;
+                font-size: 14px;
+                font-weight: 500;
+                text-decoration: none;
+                border-radius: 4px;
+                box-shadow: 0 1px 2px 0 rgba(60,64,67,0.3), 0 1px 3px 1px rgba(60,64,67,0.15);
+                transition: background-color 0.2s, box-shadow 0.2s;
+            " onmouseover="this.style.backgroundColor='#1765cc'; this.style.boxShadow='0 1px 3px 0 rgba(60,64,67,0.3), 0 4px 8px 3px rgba(60,64,67,0.15)';" 
+              onmouseout="this.style.backgroundColor='#1a73e8'; this.style.boxShadow='0 1px 2px 0 rgba(60,64,67,0.3), 0 1px 3px 1px rgba(60,64,67,0.15)';">
+                Mở Đồ thị Tri thức
+            </a>
+            """
+            st.components.v1.html(google_btn_html, height=70)
         
         with st.expander("📌 Xem các Thực thể trích xuất (NER)"):
             st.json(res['entities'])
