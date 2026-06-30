@@ -22,7 +22,7 @@ def load_summarization_model(language: str = 'vi'):
     device = get_device()
     
     if language == 'vi':
-        model_name = "VietAI/vit5-base"
+        model_name = "./models/vit5-finetuned"
     elif language == 'en':
         model_name = "csebuetnlp/mT5_multilingual_XLSum"
     else:
@@ -66,11 +66,13 @@ def generate_summary(extracted_text: str, language: str = 'vi') -> str:
     with torch.no_grad():
         summary_ids = model.generate(
             inputs["input_ids"],
-            max_length=150,   
-            min_length=40,      
-            length_penalty=2.0,
-            num_beams=4, 
-            early_stopping=True
+            max_length=250,        
+            min_length=100,         # <--- BƯỚC QUAN TRỌNG NHẤT: Giảm mạnh xuống 30 hoặc 40
+            length_penalty=2,    # <--- Giảm xuống dưới 1.0 để khuyến khích AI viết ngắn, đi thẳng vào vấn đề
+            num_beams=4,           
+            early_stopping=False,
+            no_repeat_ngram_size=3,  
+            repetition_penalty=1.15  
         )
         
     summary = tokenizer.decode(summary_ids[0], skip_special_tokens=True)
