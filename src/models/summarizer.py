@@ -66,13 +66,13 @@ def generate_summary(extracted_text: str, language: str = 'vi') -> str:
     with torch.no_grad():
         summary_ids = model.generate(
             inputs["input_ids"],
-            max_length=250,        
-            min_length=100,         # <--- BƯỚC QUAN TRỌNG NHẤT: Giảm mạnh xuống 30 hoặc 40
-            length_penalty=2,    # <--- Giảm xuống dưới 1.0 để khuyến khích AI viết ngắn, đi thẳng vào vấn đề
+            max_length=150,        
+            min_length=30,           # Không ép model viết dài nữa để tránh lan man
+            length_penalty=0.8,      # Phạt nếu viết dài (giúp model súc tích)
             num_beams=4,           
-            early_stopping=False,
+            early_stopping=True,     # Dừng ngay khi đủ ý
             no_repeat_ngram_size=3,  
-            repetition_penalty=1.15  
+            repetition_penalty=1.5   # Phạt nặng lặp từ
         )
         
     summary = tokenizer.decode(summary_ids[0], skip_special_tokens=True)
