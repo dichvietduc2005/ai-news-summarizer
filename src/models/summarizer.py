@@ -22,7 +22,7 @@ def load_summarization_model(language: str = 'vi'):
     device = get_device()
     
     if language == 'vi':
-        model_name = "./models/vit5-finetuned"
+        model_name = "./models/vit5-dpo-merged"
     elif language == 'en':
         model_name = "csebuetnlp/mT5_multilingual_XLSum"
     else:

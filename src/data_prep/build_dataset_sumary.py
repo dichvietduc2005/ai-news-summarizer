@@ -137,12 +137,12 @@ def crawl_article(url):
 # BUILD DATASET BẰNG MULTITHREADING
 # -----------------------
 def build():
-    urls = get_urls_from_sitemap(max_urls=2000000)
+    urls = get_urls_from_sitemap(max_urls=200000)
     data = []
     
     print(f"\n Bắt đầu crawl đa luồng mục tiêu {TARGET_ROWS} bài...")
     
-    with concurrent.futures.ThreadPoolExecutor(max_workers=15) as executor:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=30) as executor:
         future_to_url = {executor.submit(crawl_article, url): url for url in urls}
         
         for future in concurrent.futures.as_completed(future_to_url):
