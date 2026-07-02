@@ -36,9 +36,9 @@ static/
 # ==========================================
 # CÁC FILE/THƯ MỤC NẶNG TUYỆT ĐỐI KHÔNG ĐẨY LÊN GIT
 # ==========================================
-models/
-vit5-dpo-adapter-final/
-vit5-dpo-merged/
+/models/
+/vit5-dpo-adapter-final/
+/vit5-dpo-merged/
 *.zip
 *.safetensors
 *.bin
